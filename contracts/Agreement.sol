@@ -25,8 +25,7 @@ contract AgreementToken is ERC721Enumerable {
 
     function nextTokenId() internal returns (uint256){
         tokenId++;
-        uint256 i = tokenId;
-        return i;
+        return tokenId;
     }
 
     function transfer(address to, uint256 id) public{
