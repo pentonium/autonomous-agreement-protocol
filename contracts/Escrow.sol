@@ -26,17 +26,17 @@ contract Escrow{
     UserKeys client_keys;
     UserKeys service_provider_keys;
 
-    address agreement;
-    uint256 agId;
-    uint256 category_id;
-    uint256 status;
-    uint256 start_time;
+    address public agreement;
+    uint256 public agId;
+    uint256 public category_id;
+    uint256 public status;
+    uint256 public start_time;
 
     /**
     status: 100
      */
 
-    constructor (address _agreement, uint256 _agId, uint256 _category_id){
+    constructor (address _agreement, uint256 _agId, uint256 _category_id, string public_key, string private_key){
         AgreementToken agreementContract = AgreementToken(_agreement);
         AgreementToken.AgreementDetails memory details = agreementContract.getAgreementDetails(_agId);
         agreementDetails = AgreementDetails(details.price, details.time, details.ipfs_hash, details.is_public, details.token, details.owner, msg.sender);
@@ -46,6 +46,8 @@ contract Escrow{
         agId = _agId;
         category_id = _category_id;
         start_time = block.timestamp;
+
+        client_keys = UserKeys(public_key, private_key);
     }
 
     modifier onlyClient {
@@ -70,9 +72,10 @@ contract Escrow{
     }
 
     /** Service provider can accept the order */
-    function acceptOrder(string memory _service_provider_public, string memory _service_provider_private) onlyServiceProvider public {
+    function acceptOrder(string memory public_key, string memory private_key) onlyServiceProvider public {
         require(status == 100, "Can not accept order");
         status = 101;
+        service_provider_keys = UserKeys(public_key, private_key);
         // convert tokens to PTM
     }
 
@@ -107,11 +110,13 @@ contract Escrow{
     }
 
     /** Client Private & Public  */
-    function getClientRequirements() public view returns (string memory, string memory, string memory){
+    function getClientRequirements() onlyClient public view returns (string memory, string memory, string memory){
+        return (client_keys.public_key, client_keys.private_key, service_provider_keys.public_key);
     }
 
     /** Service Provider Private & Public  */
-    function getServiceProviderRequirements() public view returns (string memory, string memory, string memory){
+    function getServiceProviderRequirements() onlyServiceProvider public view returns (string memory, string memory, string memory){
+        return (service_provider_keys.public_key, service_provider_keys.private_key, client_keys.public_key);
     }
 
     function withdraw() private {
