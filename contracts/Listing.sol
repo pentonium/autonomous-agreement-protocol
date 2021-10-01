@@ -1,6 +1,18 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
-import "./Agreement.sol";
+
+
+interface AgreementToken{
+    function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) external;
+
+    function transfer(address to, uint256 id) external;
+
+    function ownerOf(uint256 tokenId) external view returns (address) ;
+}
 
 contract Listing{
 
@@ -16,7 +28,8 @@ contract Listing{
     uint256[] public parent_category_index;
     uint256 public cat_id;
 
-    function addNewGig(address factory, uint256 id, uint256 category_id) public{
+    /** Add New Agreement */
+    function addNewAgreement(address factory, uint256 id, uint256 category_id) public{
         AgreementToken agreement = AgreementToken(factory);
 
         agreement.transferFrom(msg.sender, address(this), id);
@@ -24,15 +37,19 @@ contract Listing{
         list[category_id][factory].push(id);
     }
 
-
-    function transferGig(address factory, uint256 id, address new_destination) public{
+    /** Transfer agreement to different address */
+    function transferAgreement(address factory, uint256 id, uint256 index, uint256 category_id, address new_destination) public{
         AgreementToken agreement = AgreementToken(factory);
         require(agreement.ownerOf(id) == msg.sender);
 
         agreement.transfer(new_destination, id);
+
+        list[category_id][factory][index] = list[category_id][factory][index - 1];
+        delete list[category_id][factory][index - 1];
+        list[category_id][factory].pop();
     }
 
-
+    /** Create Category */
     function createCategory(string memory ipfs_hash, bool is_parent, uint256 parent_id) public{
 
         if(!is_parent) require(categories[parent_id].is_parent == true);
@@ -48,7 +65,7 @@ contract Listing{
         }
     }
 
-
+    /** Delete Category */
     function deleteCategory(uint256 id, uint256 index) public{
         Category memory selected_category = categories[id];
 
@@ -71,6 +88,7 @@ contract Listing{
         delete categories[id];
     }
 
+    /** Get Parent Categories */
     function getParentCategories() public view returns(Category[] memory){
 
         Category[] memory tmp_category = new Category[](parent_category_index.length);
@@ -83,6 +101,7 @@ contract Listing{
         return tmp_category;
     }
 
+    /** Get subcategories list */
     function getSubCategories(uint256 parent_id) public view returns(Category[] memory){
 
         Category[] memory tmp_category  = new Category[](sub_category_index[parent_id].length);
@@ -95,10 +114,12 @@ contract Listing{
         return tmp_category;
     }
     
-    function totalCategories() public view returns(uint256){
+    /** Total Parent Categories */
+    function totalParentCategories() public view returns(uint256){
         return parent_category_index.length;
     }
     
+    /** Total Sub Categories */
     function totalSubCategories(uint256 parent_id) public view returns(uint256){
         return sub_category_index[parent_id].length;
     }
