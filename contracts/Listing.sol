@@ -113,6 +113,16 @@ contract Listing{
         
         return tmp_category;
     }
+
+    function getListOfAgreements(address factory, uint256 category_id, uint256 start, uint256 count) public view returns(uint256[] memory){
+        uint256[] memory ids = new uint256[](count);
+
+        for(uint256 i = 0; i < count; i++){
+            ids[i] = list[category_id][factory][start + i];
+        }
+
+        return ids;
+    }
     
     /** Total Parent Categories */
     function totalParentCategories() public view returns(uint256){
