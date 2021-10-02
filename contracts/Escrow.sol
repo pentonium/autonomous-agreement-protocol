@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import "./Agreement.sol";
 import "./interface/IERC20.sol";
 import "./lib/Routes.sol";
+import "./Marshals.sol";
 
 contract Escrow{
 
@@ -27,6 +28,7 @@ contract Escrow{
     UserKeys service_provider_keys;
 
     address public agreement;
+    address public marshals;
     uint256 public agId;
     uint256 public category_id;
     uint256 public status;
@@ -67,8 +69,9 @@ contract Escrow{
 
      /** Order can be canceld after a day of no response */
     function cancelOrder() onlyClient public {
+        require(status == 100, "Can not accept order");
         status = 99;
-        withdraw();
+        withdraw(agreementDetails.client);
     }
 
     /** Service provider can accept the order */
@@ -81,8 +84,9 @@ contract Escrow{
 
     /** Service provider can reject the order */
     function rejectOrder() onlyServiceProvider public {
+        require(status == 100, "Can not accept order");
         status = 98;
-        withdraw();
+        withdraw(agreementDetails.client);
     }
 
     /** Submit a deliver, requires ipfs hash of the chat */
@@ -98,15 +102,27 @@ contract Escrow{
     }
 
     /** Create a dispute */
-    function dispute() bothParties public {
+    function dispute(string memory mesage_copy) bothParties public {
         require(status < 102 && status > 100, "Can not create dispute");
         status = 200;
     }
 
     /** Accept the dispute */
-    function disputeAccept() bothParties public {
+    function disputeAccept(string memory mesage_copy) bothParties public {
         require(status == 200, "Can not accept dispute");
         status = 201;
+    }
+
+    function clientWon() public{
+        Marshal arbitrator = Marshal(marshals);
+        require(arbitrator.is_marshal(msg.sender), "Only Marshals can do this");
+        withdraw(agreementDetails.client);
+    }
+
+    function ServiceProvidertWon() public{
+        Marshal arbitrator = Marshal(marshals);
+        require(arbitrator.is_marshal(msg.sender), "Only Marshals can do this");
+        withdraw(agreementDetails.service_provider);
     }
 
     /** Client Private & Public  */
@@ -119,8 +135,8 @@ contract Escrow{
         return (service_provider_keys.public_key, service_provider_keys.private_key, client_keys.public_key);
     }
 
-    function withdraw() private {
-        IERC20(agreementDetails.token).transfer(agreementDetails.client, IERC20(agreementDetails.token).balanceOf(address(this)));
+    function withdraw(address user) private {
+        IERC20(agreementDetails.token).transfer(user, IERC20(agreementDetails.token).balanceOf(address(this)));
     }
 
 
