@@ -1,13 +1,15 @@
 pragma solidity ^0.8.0;
 import "./Escrow.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Marshal{
+contract Marshal is Ownable{
 
     address[] public agreements;
     mapping(address => bool) public is_marshal;
     mapping(address => uint256) public client_votes;
     mapping(address => uint256) public service_provider_votes;
     mapping(address => uint256) public total_votes;
+
 
     function addAgreement() public{
         agreements.push(msg.sender);
@@ -31,16 +33,16 @@ contract Marshal{
             if(client_votes[agreement] > service_provider_votes[agreement]){
                 Escrow(agreement).clientWon();
             }else{
-                Escrow(agreement).ServiceProvidertWon();();
+                Escrow(agreement).ServiceProvidertWon();
             }
         }
     }
 
-    function addMarshal(address user) public{
+    function addMarshal(address user) public onlyOwner{
         is_marshal[user] = true;
     }
 
-    function removeMarshal(address user) public{
+    function removeMarshal(address user) public onlyOwner{
         is_marshal[user] = false;
     }
 }
