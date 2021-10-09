@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 import "./Agreement.sol";
 import "./interface/IERC20.sol";
 import "./lib/Routes.sol";
-import "./Marshals.sol";
+import "./interface/IMarshals.sol";
 
 contract Escrow{
 
@@ -38,7 +38,7 @@ contract Escrow{
     status: 100
      */
 
-    constructor (address _agreement, uint256 _agId, uint256 _category_id, string public_key, string private_key){
+    constructor (address _agreement, uint256 _agId, uint256 _category_id, string memory public_key, string memory private_key){
         AgreementToken agreementContract = AgreementToken(_agreement);
         AgreementToken.AgreementDetails memory details = agreementContract.getAgreementDetails(_agId);
         agreementDetails = AgreementDetails(details.price, details.time, details.ipfs_hash, details.is_public, details.token, details.owner, msg.sender);
@@ -111,18 +111,22 @@ contract Escrow{
     function disputeAccept(string memory mesage_copy) bothParties public {
         require(status == 200, "Can not accept dispute");
         status = 201;
+        IMarshals arbitrator = IMarshals(marshals);
+        arbitrator.addAgreement();
     }
 
     function clientWon() public{
-        Marshal arbitrator = Marshal(marshals);
+        IMarshals arbitrator = IMarshals(marshals);
         require(arbitrator.is_marshal(msg.sender), "Only Marshals can do this");
+        require(status == 201, "Can not win before dispute");
         withdraw(agreementDetails.client);
     }
 
     function ServiceProvidertWon() public{
-        Marshal arbitrator = Marshal(marshals);
+        IMarshals arbitrator = IMarshals(marshals);
         require(arbitrator.is_marshal(msg.sender), "Only Marshals can do this");
-        withdraw(agreementDetails.service_provider);
+        require(status == 201, "Can not win before dispute");
+        withdraw(agreementDetails.owner);
     }
 
     /** Client Private & Public  */
