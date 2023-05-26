@@ -8,13 +8,13 @@ interface IAgreementToken {
     
     struct AgreementDetails{
         uint256 price;
-        uint256 time;
         uint256 fee;
+        uint256 status;
         string ipfs_hash;
-        bool is_public;
         address token;
-        address owner;
-        address client;
+        address from;
+        address to;
+        bool mode;
     }
 
     function getAgreementDetails(uint256 id) external view returns(AgreementDetails memory);

@@ -1,103 +1,55 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "./interface/IProxy.sol";
-import "./interface/IERC20.sol";
-import "./interface/IAgreement.sol";
+import "@openzeppelin/contracts/token/ERC721/presets/ERC721PresetMinterPauserAutoId.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "./interface/IEscrow.sol";
 
-contract AgreementToken is ERC721Enumerable {
+contract SkillToken is ERC721PresetMinterPauserAutoId, Ownable {
 
-    mapping(uint256 => address[]) public gigOrders;
-    mapping(address => address[]) public userOrders;
-    mapping(address => address[]) public sellerOrders;
-    mapping(uint256 => string) private _tokenURIs;
+    using Counters for Counters.Counter;
+    Counters.Counter public _tokenIDs;
+    mapping(uint256 => address) public escrowUsed;
+    string private _baseTokenURI;
 
-    uint256 public tokenId;
-    uint256 public fee;
-    IProxy public proxy;
-    address public owner;
-    address public marshals;
-
-    mapping(uint256 => IAgreementToken.AgreementDetails) public agreementDetail;
-
-
-    constructor(address _proxy) ERC721("AgreementToken", "AGT") {
-        proxy = IProxy(_proxy);
-        owner = msg.sender;
+    constructor() ERC721PresetMinterPauserAutoId("SkillToken", "SKILL", "") {
     }
 
-    modifier onlyOwner {
-      require(msg.sender == owner, "Only owner can invoke this function");
-      _;
+    function mint(address escrow, address client, address service_provider, bool mode, string memory ipfs_hash, string memory skills, uint256 price, address token) public virtual returns(uint256){
+        _tokenIDs.increment();
+
+        uint256 currentTokenId =  _tokenIDs.current();
+        escrowUsed[currentTokenId] = escrow;
+
+        //let escrow know about this agreement
+        IEscrow(escrow).createOrder(address(this), currentTokenId, client, service_provider, mode, ipfs_hash, skills, price, token);
+
+        super._safeMint(service_provider, currentTokenId);
+
+        return (currentTokenId);
+    }
+ 
+
+    function getAgreementDetails(uint256 id) public view returns(IEscrow.AgreementDetails memory){
+        address contractUsed = escrowUsed[id];
+        IEscrow.AgreementDetails memory selectedAgreement = IEscrow(contractUsed).getAgreementDetails(address(this), id);
+
+        return selectedAgreement;
     }
 
-    function nextTokenId() internal returns (uint256){
-        tokenId++;
-        return tokenId;
+    function setTokenURI(string memory token_uri) onlyOwner public{
+        _baseTokenURI = token_uri;
     }
 
-    function updateOwner(address _owner) public onlyOwner {
-        owner = _owner;
+    function _baseURI() internal view virtual override returns (string memory) {
+        return _baseTokenURI;
     }
 
-    function updateMarshalls(address _marshall) public onlyOwner {
-        marshals = _marshall;
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual override {
+        super._beforeTokenTransfer(from, to, tokenId);
+
+        require(from == address(0) || to == address(0), "This a Soulbound token. It cannot be transferred. It can only be burned by the token owner.");
     }
 
-    function generate(address to, string memory ipfs_hash, uint256 price, uint256 time, address token, address client, bool is_public) public{
-        uint256 tid = nextTokenId();
-        agreementDetail[tid] = IAgreementToken.AgreementDetails(price, time, fee, ipfs_hash, is_public, token, msg.sender, client);
-        _mint(to, tid);
-         _setTokenURI(tid, ipfs_hash);
-    }
-
-    function tokenURIs(uint256 id) public view returns(string memory){
-        return _tokenURIs[id];
-    }
-
-    function _setTokenURI(uint256 _tokenId, string memory tokenURI) internal{
-        _tokenURIs[_tokenId] = tokenURI;
-    }
-
-    function getAgreementDetails(uint256 id) public view returns(IAgreementToken.AgreementDetails memory){
-        IAgreementToken.AgreementDetails memory agt = agreementDetail[id];
-        if(agt.is_public) return agt;
-        if(agt.client == msg.sender || agt.owner == msg.sender) return agt;
-    }
-
-    function updateAgreement(string memory ipfs_hash, uint256 price, uint256 time, uint256 id, address token) public{
-         IAgreementToken.AgreementDetails memory agt = agreementDetail[id];
-         require(agt.owner == msg.sender, "Only owner can update the agreement");
-         agreementDetail[id] = IAgreementToken.AgreementDetails(price, time, fee, ipfs_hash, agt.is_public, token, agt.owner, agt.client);
-    }
-
-    function updateFee(uint256 _fee) public onlyOwner{
-        fee = _fee;
-    }
-
-    function placeOrder(uint256 id, uint256 category_id, string memory public_key, string memory private_key) public{
-        address order = proxy.placeOrder(address(this), id, category_id, msg.sender, marshals, public_key, private_key);
-        IAgreementToken.AgreementDetails memory agt = agreementDetail[id];
-        IERC20(agt.token).transferFrom(msg.sender, address(order), agt.price);
-
-        gigOrders[id].push(order);
-        userOrders[msg.sender].push(order);
-        sellerOrders[agt.owner].push(order);
-    }
-
-    function getAllOrders(bool userType) public view returns(address[] memory){
-        if(userType) return userOrders[msg.sender];
-        else return sellerOrders[msg.sender];
-    }
-
-    function getGigOrders(uint256 id) public view returns(address[] memory){
-        return gigOrders[id];
-    }
-
-    function burn(uint256 tokenId) public virtual {
-        // solhint-disable-next-line max-line-length
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721Burnable: caller is not owner nor approved");
-        _burn(tokenId);
-    }
 }
