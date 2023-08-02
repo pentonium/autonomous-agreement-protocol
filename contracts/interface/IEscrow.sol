@@ -7,6 +7,7 @@ interface IEscrow{
         uint256 price;
         uint256 fee;
         uint256 status;
+        uint256 deadline;
         string ipfs_hash;
         string skills;
         address token;
@@ -16,7 +17,7 @@ interface IEscrow{
     }
 
 
-    function createOrder(address agreement, uint256 agreementId, address client, address service_provider, bool mode, string memory ipfs_hash, string memory skills, uint256 price, address token) external;
+    function createAgreement(address agreement, uint256 agreementId, address client, address service_provider, bool mode, string memory ipfs_hash, string memory skills, uint256 price, address token, uint256 deadline) external;
 
     function getAgreementDetails(address agreement, uint256 id) external view returns(AgreementDetails memory);
 }

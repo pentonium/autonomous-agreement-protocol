@@ -3,43 +3,36 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/presets/ERC721PresetMinterPauserAutoId.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 import "./interface/IEscrow.sol";
 
-contract SkillToken is ERC721PresetMinterPauserAutoId, Ownable {
+contract ClientProof is ERC721PresetMinterPauserAutoId, Ownable {
 
-    using Counters for Counters.Counter;
-    Counters.Counter public _tokenIDs;
+    address serviceProof;
     mapping(uint256 => address) public escrowUsed;
     string private _baseTokenURI;
 
-    constructor() ERC721PresetMinterPauserAutoId("SkillToken", "SKILL", "") {
+    constructor() ERC721PresetMinterPauserAutoId("ClientProof", "CP", "") {
     }
 
-    function mint(address escrow, address client, address service_provider, bool mode, string memory ipfs_hash, string memory skills, uint256 price, address token) public virtual returns(uint256){
-        _tokenIDs.increment();
-
-        uint256 currentTokenId =  _tokenIDs.current();
-        escrowUsed[currentTokenId] = escrow;
-
-        //let escrow know about this agreement
-        IEscrow(escrow).createOrder(address(this), currentTokenId, client, service_provider, mode, ipfs_hash, skills, price, token);
-
-        super._safeMint(service_provider, currentTokenId);
-
-        return (currentTokenId);
+    function mint(uint256 id, address client, address escrow) public virtual {
+        require(serviceProof == msg.sender, "Only ServiceProof can mint this proof");
+        escrowUsed[id] = escrow;
+        super._safeMint(client, id);
     }
- 
 
     function getAgreementDetails(uint256 id) public view returns(IEscrow.AgreementDetails memory){
         address contractUsed = escrowUsed[id];
-        IEscrow.AgreementDetails memory selectedAgreement = IEscrow(contractUsed).getAgreementDetails(address(this), id);
+        IEscrow.AgreementDetails memory selectedAgreement = IEscrow(contractUsed).getAgreementDetails(serviceProof, id);
 
         return selectedAgreement;
     }
 
     function setTokenURI(string memory token_uri) onlyOwner public{
         _baseTokenURI = token_uri;
+    }
+
+    function setServiceProof(address _serviceProof) public onlyOwner{
+        serviceProof = _serviceProof;
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
